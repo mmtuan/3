@@ -1,0 +1,56 @@
+name: Deobfuscate Python Files
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deobfuscate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Kiểm tra thư mục files/
+        run: |
+          ls -la files/ 2>/dev/null || { echo "⚠️  Không có thư mục files/"; exit 1; }
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Cài decompiler
+        run: pip install decompile3 || echo "decompile3 không hỗ trợ 3.13, sẽ dùng bytecode"
+
+      - name: Giải mã tất cả file (audit hook - không bị phát hiện)
+        run: |
+          mkdir -p results
+          for f in files/*; do
+            [ -f "$f" ] || continue
+            name=$(basename "$f")
+            ext="${name##*.}"
+            echo "=========================================="
+            echo "🔓 Đang xử lý: $f"
+            echo "=========================================="
+            python deob.py "$f" "results/${name%.*}_deob.txt" \
+              && echo "✅ Xong: results/${name%.*}_deob.txt" \
+              || echo "❌ Lỗi: $f"
+          done
+
+      - name: In tóm tắt kết quả
+        run: |
+          for f in results/*_deob.txt; do
+            [ -f "$f" ] || continue
+            echo ""
+            echo "════════════════════════════════════"
+            echo "📄 $(basename $f)"
+            echo "════════════════════════════════════"
+            head -60 "$f"
+            echo "... (tải Artifacts để xem đầy đủ)"
+          done
+
+      - name: Upload kết quả
+        uses: actions/upload-artifact@v4
+        with:
+          name: ket-qua-giai-ma
+          path: results/
